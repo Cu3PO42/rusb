@@ -1,3 +1,4 @@
+use std::process::Command;
 use std::{env, fs, path::PathBuf};
 
 static VERSION: &'static str = "1.0.24";
@@ -59,6 +60,26 @@ fn find_libusb_pkg(statik: bool) -> bool {
 
 fn make_source() {
     let libusb_source = PathBuf::from("libusb");
+
+    // Check out the desired commit
+    println!("cargo:rerun-if-env-changed=LIBUSB_COMMIT");
+    if let Ok(commit) = std::env::var("LIBUSB_COMMIT") {
+        Command::new("git")
+            .arg("checkout")
+            .arg(&commit)
+            .current_dir(&libusb_source)
+            .status()
+            .unwrap_or_else(|_| panic!("{} is not a valid commit, tag or branch in the libusb repository", &commit));
+    } else {
+        // If no value is specified, we use whatever commit the submodule was originally set to
+        Command::new("git")
+            .arg("submodule")
+            .arg("update")
+            .arg("--init")
+            .current_dir(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+            .status()
+            .expect("Resetting libusb to original commit failed");
+    }
 
     /*
     Example environment variables and values:
